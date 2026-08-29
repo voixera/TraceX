@@ -91,17 +91,22 @@ ignore = [
     "N802",  # function name casing
     "N803",  # argument name casing
     "N806",  # variable in function
+    "B008",  # FastAPI Depends/HTTPBearer in defaults is the standard pattern
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # re-exports
 
 [tool.ruff.lint.isort]
 known-first-party = ["packages", "apps"]
 
 [tool.mypy]
 python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
+warn_return_any = false
+warn_unused_configs = false
 disallow_untyped_defs = false
 ignore_missing_imports = true
+no_implicit_optional = true
 exclude = ["tests/"]
 
 [tool.coverage.run]

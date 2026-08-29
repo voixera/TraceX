@@ -1,11 +1,12 @@
 """TraceX CLI case management command."""
 
+import asyncio
+
+import httpx
 import typer
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-import asyncio
-import httpx
+from rich.table import Table
 
 app = typer.Typer(help="Manage investigation cases")
 console = Console()
@@ -136,7 +137,7 @@ def delete_case(
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 await client.delete(f"{get_api_url()}/api/v1/cases/{case_id}")
-                console.print(f"[green]✓[/green] Case deleted")
+                console.print("[green]✓[/green] Case deleted")
 
             except Exception as e:
                 console.print(f"[red]Error:[/red] {e}")

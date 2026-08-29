@@ -1,14 +1,14 @@
 """TraceX API routers - entities."""
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List, Optional
-from pydantic import BaseModel
 
-from packages.database.session import get_session
-from packages.database.models import Entity, Case
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from packages.common.dependencies import get_current_user
+from packages.database.models import Case, Entity
+from packages.database.session import get_session
 
 router = APIRouter(prefix="/api/v1/entities", tags=["entities"])
 
@@ -18,13 +18,13 @@ class EntityResponse(BaseModel):
     case_id: str
     entity_type: str
     value: str
-    name: Optional[str]
-    description: Optional[str]
+    name: str | None
+    description: str | None
     confidence: float
     metadata: dict
     first_seen: str
     last_seen: str
-    source_ids: List[str]
+    source_ids: list[str]
 
     class Config:
         from_attributes = True
@@ -44,7 +44,7 @@ async def get_entity(
     return entity
 
 
-@router.get("/case/{case_id}", response_model=List[EntityResponse])
+@router.get("/case/{case_id}", response_model=list[EntityResponse])
 async def list_entities(
     case_id: str,
     session: AsyncSession = Depends(get_session),

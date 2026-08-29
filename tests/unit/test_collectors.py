@@ -1,17 +1,14 @@
 """Tests for TraceX collectors."""
 
-import pytest
-from unittest.mock import AsyncMock, Mock, patch
-from packages.collectors.base import BaseCollector, CollectorContext
+from packages.collectors.base import CollectorContext
 from packages.collectors.domain import DomainCollector
+from packages.collectors.github import GitHubCollector
 from packages.collectors.url import URLCollector
 from packages.collectors.username import UsernameCollector
-from packages.collectors.github import GitHubCollector
 from packages.models.schemas import (
+    EntityType,
     Target,
     TargetType,
-    EntityType,
-    SourceType,
 )
 
 

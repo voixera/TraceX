@@ -1,11 +1,11 @@
 """TraceX CLI username command."""
 
+import asyncio
+
+import httpx
 import typer
 from rich.console import Console
 from rich.table import Table
-from rich.panel import Panel
-import asyncio
-import httpx
 
 app = typer.Typer(help="Username intelligence collection")
 console = Console()

@@ -1,11 +1,12 @@
 """TraceX CLI GitHub command."""
 
+import asyncio
+
+import httpx
 import typer
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-import asyncio
-import httpx
+from rich.table import Table
 
 app = typer.Typer(help="GitHub intelligence collection")
 console = Console()

@@ -1,11 +1,12 @@
 """TraceX CLI graph command."""
 
+import asyncio
+import os
+
+import httpx
 import typer
 from rich.console import Console
 from rich.table import Table
-import asyncio
-import httpx
-import os
 
 app = typer.Typer(help="View relationship graph")
 console = Console()

@@ -1,12 +1,12 @@
 """TraceX CLI domain command."""
 
+import asyncio
+
+import httpx
 import typer
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-import asyncio
-import httpx
-from datetime import datetime
+from rich.table import Table
 
 app = typer.Typer(help="Domain intelligence collection")
 console = Console()

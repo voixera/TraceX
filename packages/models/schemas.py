@@ -1,13 +1,14 @@
 """TraceX Pydantic models and schemas."""
 
-from enum import Enum
-from typing import Optional, List, Dict, Any
-from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl, EmailStr, validator
 import uuid
+from datetime import datetime
+from enum import StrEnum
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
-class TargetType(str, Enum):
+class TargetType(StrEnum):
     """Supported investigation target types."""
 
     USERNAME = "username"
@@ -18,7 +19,7 @@ class TargetType(str, Enum):
     EMAIL = "email"
 
 
-class EntityType(str, Enum):
+class EntityType(StrEnum):
     """Entity types in the intelligence graph."""
 
     USERNAME = "username"
@@ -35,7 +36,7 @@ class EntityType(str, Enum):
     PERSON = "person"
 
 
-class RelationshipType(str, Enum):
+class RelationshipType(StrEnum):
     """Relationship types between entities."""
 
     OWNS = "owns"
@@ -50,7 +51,7 @@ class RelationshipType(str, Enum):
     SAME_AS = "same_as"
 
 
-class ConfidenceLevel(str, Enum):
+class ConfidenceLevel(StrEnum):
     """Confidence levels for findings."""
 
     LOW = "low"
@@ -59,7 +60,7 @@ class ConfidenceLevel(str, Enum):
     VERIFIED = "verified"
 
 
-class SourceType(str, Enum):
+class SourceType(StrEnum):
     """Data source types."""
 
     API = "api"
@@ -72,7 +73,7 @@ class SourceType(str, Enum):
     PLUGIN = "plugin"
 
 
-class CaseStatus(str, Enum):
+class CaseStatus(StrEnum):
     """Investigation case status."""
 
     ACTIVE = "active"
@@ -80,7 +81,7 @@ class CaseStatus(str, Enum):
     DELETED = "deleted"
 
 
-class InvestigationStatus(str, Enum):
+class InvestigationStatus(StrEnum):
     """Investigation job status."""
 
     PENDING = "pending"
@@ -98,7 +99,7 @@ class Target(BaseModel):
     case_id: str
     target_type: TargetType
     value: str
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now())
     updated_at: datetime = Field(default_factory=lambda: datetime.now())
 
@@ -109,14 +110,14 @@ class Entity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     entity_type: EntityType
     value: str
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     first_seen: datetime = Field(default_factory=lambda: datetime.now())
     last_seen: datetime = Field(default_factory=lambda: datetime.now())
-    source_ids: List[str] = Field(default_factory=list)
-    case_ids: List[str] = Field(default_factory=list)
+    source_ids: list[str] = Field(default_factory=list)
+    case_ids: list[str] = Field(default_factory=list)
 
 
 class Relationship(BaseModel):
@@ -127,10 +128,10 @@ class Relationship(BaseModel):
     target_id: str
     relationship_type: RelationshipType
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
-    evidence_ids: List[str] = Field(default_factory=list)
-    source_reference: Optional[str] = None
+    evidence_ids: list[str] = Field(default_factory=list)
+    source_reference: str | None = None
     observed_at: datetime = Field(default_factory=lambda: datetime.now())
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class Evidence(BaseModel):
@@ -138,17 +139,17 @@ class Evidence(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     case_id: str
-    entity_id: Optional[str] = None
+    entity_id: str | None = None
     source: str
     source_type: SourceType
-    url: Optional[str] = None
+    url: str | None = None
     collector: str
     observation: str
-    raw_data: Dict[str, Any] = Field(default_factory=dict)
+    raw_data: dict[str, Any] = Field(default_factory=dict)
     hash: str
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     observed_at: datetime = Field(default_factory=lambda: datetime.now())
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class Source(BaseModel):
@@ -157,13 +158,13 @@ class Source(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     source_type: SourceType
-    base_url: Optional[str] = None
-    api_endpoint: Optional[str] = None
-    rate_limit: Dict[str, int] = Field(default_factory=dict)
+    base_url: str | None = None
+    api_endpoint: str | None = None
+    rate_limit: dict[str, int] = Field(default_factory=dict)
     requires_auth: bool = False
-    description: Optional[str] = None
+    description: str | None = None
     is_active: bool = True
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class Case(BaseModel):
@@ -171,16 +172,16 @@ class Case(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     status: CaseStatus = CaseStatus.ACTIVE
-    tags: List[str] = Field(default_factory=list)
-    target_ids: List[str] = Field(default_factory=list)
-    entity_ids: List[str] = Field(default_factory=list)
-    evidence_ids: List[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    target_ids: list[str] = Field(default_factory=list)
+    entity_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now())
     updated_at: datetime = Field(default_factory=lambda: datetime.now())
-    archived_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    archived_at: datetime | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class Investigation(BaseModel):
@@ -188,18 +189,18 @@ class Investigation(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     case_id: str
-    target_ids: List[str]
+    target_ids: list[str]
     status: InvestigationStatus = InvestigationStatus.PENDING
     progress: float = Field(default=0.0, ge=0.0, le=1.0)
-    current_collector: Optional[str] = None
-    collectors_run: List[str] = Field(default_factory=list)
-    collectors_failed: List[str] = Field(default_factory=list)
+    current_collector: str | None = None
+    collectors_run: list[str] = Field(default_factory=list)
+    collectors_failed: list[str] = Field(default_factory=list)
     entities_found: int = 0
     relationships_found: int = 0
     evidence_count: int = 0
-    errors: List[Dict[str, Any]] = Field(default_factory=list)
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    errors: list[dict[str, Any]] = Field(default_factory=list)
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now())
 
 
@@ -211,9 +212,9 @@ class Report(BaseModel):
     title: str
     format: str  # json, markdown, html, pdf
     content: str
-    summary: Dict[str, Any] = Field(default_factory=dict)
+    summary: dict[str, Any] = Field(default_factory=dict)
     generated_at: datetime = Field(default_factory=lambda: datetime.now())
-    generated_by: Optional[str] = None
+    generated_by: str | None = None
 
 
 class CollectorResult(BaseModel):
@@ -223,27 +224,27 @@ class CollectorResult(BaseModel):
     target: str
     target_type: TargetType
     success: bool
-    entities: List[Entity] = Field(default_factory=list)
-    relationships: List[Relationship] = Field(default_factory=list)
-    evidence: List[Evidence] = Field(default_factory=list)
-    errors: List[str] = Field(default_factory=list)
+    entities: list[Entity] = Field(default_factory=list)
+    relationships: list[Relationship] = Field(default_factory=list)
+    evidence: list[Evidence] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
     execution_time: float = 0.0
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class APIResponse(BaseModel):
     """Standard API response."""
 
     success: bool
-    data: Optional[Any] = None
-    error: Optional[str] = None
-    message: Optional[str] = None
+    data: Any | None = None
+    error: str | None = None
+    message: str | None = None
 
 
 class PaginatedResponse(BaseModel):
     """Paginated API response."""
 
-    items: List[Any]
+    items: list[Any]
     total: int
     page: int
     page_size: int
@@ -257,7 +258,7 @@ class GraphNode(BaseModel):
     label: str
     type: str
     confidence: float
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class GraphEdge(BaseModel):
@@ -268,11 +269,11 @@ class GraphEdge(BaseModel):
     target: str
     type: str
     confidence: float
-    label: Optional[str] = None
+    label: str | None = None
 
 
 class GraphData(BaseModel):
     """Graph visualization data."""
 
-    nodes: List[GraphNode]
-    edges: List[GraphEdge]
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]

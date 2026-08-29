@@ -1,10 +1,11 @@
 """TraceX CLI report generation command."""
 
+import asyncio
+import os
+
+import httpx
 import typer
 from rich.console import Console
-import asyncio
-import httpx
-import os
 
 app = typer.Typer(help="Generate investigation reports")
 console = Console()

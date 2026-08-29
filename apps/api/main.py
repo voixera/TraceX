@@ -1,22 +1,21 @@
 """TraceX API main application."""
 
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
 
-from packages.common.settings import settings
-from packages.common.logging import setup_logging
-from packages.database.session import (
-    init_database,
-    create_tables,
-    close_database,
-)
-from packages.database.models import Base
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 # Import routers
-from apps.api.routers import cases, targets, investigations, entities
+from apps.api.routers import cases, entities, investigations, targets
+from packages.common.logging import setup_logging
+from packages.common.settings import settings
+from packages.database.session import (
+    close_database,
+    create_tables,
+    init_database,
+)
 
 
 @asynccontextmanager

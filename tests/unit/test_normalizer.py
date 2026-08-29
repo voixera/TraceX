@@ -1,7 +1,5 @@
 """Tests for TraceX normalizer."""
 
-import pytest
-from datetime import datetime, timezone
 from packages.core.normalizer import Normalizer
 from packages.models.schemas import EntityType, SourceType
 

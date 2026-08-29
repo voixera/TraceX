@@ -1,28 +1,47 @@
 """TraceX API routers - investigations."""
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List, Optional
-from pydantic import BaseModel
+from datetime import UTC, datetime
 
-from packages.database.session import get_session
-from packages.database.models import Investigation, Case, Target, InvestigationStatus
-from packages.models.schemas import Investigation as InvestigationSchema
-from packages.common.dependencies import get_current_user
-from packages.core.engine import IntelligenceEngine
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from packages.collectors import get_available_collectors
+from packages.common.dependencies import get_current_user
+from packages.database.models import Case, Investigation, InvestigationStatus, Target
+from packages.database.session import get_session
 
 router = APIRouter(prefix="/api/v1/investigations", tags=["investigations"])
 
 
 class StartInvestigationRequest(BaseModel):
     case_id: str
-    target_ids: List[str]
-    collectors: Optional[List[str]] = None
+    target_ids: list[str]
+    collectors: list[str] | None = None
 
 
-@router.post("/", response_model=InvestigationSchema)
+class InvestigationResponse(BaseModel):
+    id: str
+    case_id: str
+    status: str
+    progress: float
+    current_collector: str | None = None
+    collectors_run: list[str] = []
+    collectors_failed: list[str] = []
+    entities_found: int
+    relationships_found: int
+    evidence_count: int
+    errors: list[dict] = []
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+@router.post("/", response_model=InvestigationResponse)
 async def start_investigation(
     request: StartInvestigationRequest,
     background_tasks: BackgroundTasks,
@@ -30,7 +49,6 @@ async def start_investigation(
     current_user: str = Depends(get_current_user),
 ):
     """Start a new investigation."""
-    # Verify case exists and user owns it
     case_result = await session.execute(select(Case).where(Case.id == request.case_id))
     case = case_result.scalar_one_or_none()
     if not case:
@@ -38,21 +56,16 @@ async def start_investigation(
     if case.owner_id != current_user:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Verify targets exist
-    targets = []
     for target_id in request.target_ids:
         target_result = await session.execute(
             select(Target).where(Target.id == target_id, Target.case_id == request.case_id)
         )
-        target = target_result.scalar_one_or_none()
-        if not target:
+        if not target_result.scalar_one_or_none():
             raise HTTPException(status_code=404, detail=f"Target {target_id} not found")
-        targets.append(target)
 
-    # Create investigation
     investigation = Investigation(
         case_id=request.case_id,
-        status=InvestigationStatus.PENDING,
+        status="pending",
         collectors_run=[],
         collectors_failed=[],
         errors=[],
@@ -61,17 +74,14 @@ async def start_investigation(
     await session.commit()
     await session.refresh(investigation)
 
-    # Schedule background task
     background_tasks.add_task(run_investigation_task, investigation.id, request.collectors)
 
     return investigation
 
 
-async def run_investigation_task(investigation_id: str, collectors: Optional[List[str]] = None):
+async def run_investigation_task(investigation_id: str, collectors: list[str] | None = None):
     """Background task to run investigation."""
-    from datetime import datetime, timezone
     from packages.database.session import get_session_context
-    from packages.database.models import Investigation, InvestigationStatus
 
     async with get_session_context() as session:
         result = await session.execute(
@@ -82,18 +92,17 @@ async def run_investigation_task(investigation_id: str, collectors: Optional[Lis
             return
 
         investigation.status = InvestigationStatus.RUNNING
-        investigation.started_at = datetime.now(timezone.utc)
+        investigation.started_at = datetime.now(UTC)
         await session.commit()
 
-        # Run collectors (simplified - full implementation would use the engine)
         investigation.status = InvestigationStatus.COMPLETED
-        investigation.completed_at = datetime.now(timezone.utc)
+        investigation.completed_at = datetime.now(UTC)
         investigation.progress = 1.0
         investigation.collectors_run = collectors or list(get_available_collectors().keys())
         await session.commit()
 
 
-@router.get("/{investigation_id}", response_model=InvestigationSchema)
+@router.get("/{investigation_id}", response_model=InvestigationResponse)
 async def get_investigation(
     investigation_id: str,
     session: AsyncSession = Depends(get_session),
@@ -109,7 +118,7 @@ async def get_investigation(
     return investigation
 
 
-@router.get("/case/{case_id}", response_model=List[InvestigationSchema])
+@router.get("/case/{case_id}", response_model=list[InvestigationResponse])
 async def list_investigations(
     case_id: str,
     session: AsyncSession = Depends(get_session),

@@ -2,30 +2,28 @@
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional, Callable
-from dataclasses import dataclass, field
-from contextlib import asynccontextmanager
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any, Optional
 
+from packages.common.utils import (
+    build_evidence_hash,
+    generate_id,
+)
+from packages.database.models import Entity as DBEntity
+from packages.database.models import Evidence as DBEvidence
+from packages.database.models import Relationship as DBRelationship
 from packages.models.schemas import (
-    Target,
-    Entity,
-    Relationship,
-    Evidence,
     CollectorResult,
-    TargetType,
+    Entity,
     EntityType,
+    Evidence,
+    Relationship,
     RelationshipType,
     SourceType,
-    ConfidenceLevel,
-)
-from packages.database.models import Entity as DBEntity, Relationship as DBRelationship, Evidence as DBEvidence
-from packages.common.utils import (
-    generate_id,
-    hash_evidence,
-    calculate_confidence_factors,
-    get_current_timestamp,
-    build_evidence_hash,
+    Target,
+    TargetType,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,7 +35,7 @@ class CollectorContext:
 
     case_id: str
     target: Target
-    config: Dict[str, Any]
+    config: dict[str, Any]
     rate_limiter: "RateLimiter"
     session: Any = None
 
@@ -48,14 +46,14 @@ class RateLimiter:
     def __init__(self, requests_per_minute: int = 60, requests_per_second: float = 0):
         self.requests_per_minute = requests_per_minute
         self.requests_per_second = requests_per_second
-        self._tokens = requests_per_minute
-        self._last_refill = datetime.now(timezone.utc)
+        self._tokens: float = float(requests_per_minute)
+        self._last_refill = datetime.now(UTC)
         self._lock = asyncio.Lock()
 
     async def acquire(self) -> None:
         """Acquire a token, waiting if necessary."""
         async with self._lock:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             elapsed = (now - self._last_refill).total_seconds()
 
             if self.requests_per_second > 0:
@@ -85,12 +83,12 @@ class IntelligenceEngine:
     def __init__(
         self,
         db_session_factory: Callable,
-        rate_limits: Dict[str, Dict[str, int]] = None,
+        rate_limits: dict[str, dict[str, int]] | None = None,
         collector_timeout: int = 30,
         max_retries: int = 3,
     ):
         self.db_session_factory = db_session_factory
-        self.collectors: Dict[str, "BaseCollector"] = {}
+        self.collectors: dict[str, BaseCollector] = {}
         self.rate_limits = rate_limits or {}
         self.collector_timeout = collector_timeout
         self.max_retries = max_retries
@@ -106,20 +104,20 @@ class IntelligenceEngine:
         """Get collector by name."""
         return self.collectors.get(name)
 
-    def list_collectors(self) -> List[str]:
+    def list_collectors(self) -> list[str]:
         """List available collectors."""
         return list(self.collectors.keys())
 
     async def run_investigation(
         self,
         case_id: str,
-        targets: List[Target],
-        collectors: List[str] = None,
-        progress_callback: Optional[Callable] = None,
-    ) -> Dict[str, Any]:
+        targets: list[Target],
+        collectors: list[str] | None = None,
+        progress_callback: Callable | None = None,
+    ) -> dict[str, Any]:
         """Run investigation on targets with specified collectors."""
         collectors_to_run = collectors or list(self.collectors.keys())
-        results = {
+        results: dict[str, Any] = {
             "entities_found": 0,
             "relationships_found": 0,
             "evidence_count": 0,
@@ -196,7 +194,7 @@ class IntelligenceEngine:
                 if result.success or attempt == self.max_retries - 1:
                     return result
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 last_error = f"Timeout after {self.collector_timeout}s"
             except Exception as e:
                 last_error = str(e)
@@ -220,7 +218,6 @@ class IntelligenceEngine:
     ) -> None:
         """Store collector results in database."""
         from packages.database.session import get_session_context
-        from packages.common.utils import get_current_timestamp
 
         async with get_session_context() as session:
             # Store entities
@@ -233,7 +230,7 @@ class IntelligenceEngine:
                     name=entity.name,
                     description=entity.description,
                     confidence=entity.confidence,
-                    metadata=entity.metadata,
+                    extra_metadata=entity.metadata,
                     first_seen=entity.first_seen,
                     last_seen=entity.last_seen,
                     source_ids=entity.source_ids,
@@ -252,7 +249,7 @@ class IntelligenceEngine:
                     evidence_ids=rel.evidence_ids,
                     source_reference=rel.source_reference,
                     observed_at=rel.observed_at,
-                    metadata=rel.metadata,
+                    extra_metadata=rel.metadata,
                 )
                 session.add(db_rel)
 
@@ -271,7 +268,7 @@ class IntelligenceEngine:
                     hash=evidence.hash,
                     confidence=evidence.confidence,
                     observed_at=evidence.observed_at,
-                    metadata=evidence.metadata,
+                    extra_metadata=evidence.metadata,
                 )
                 session.add(db_evidence)
 
@@ -282,9 +279,9 @@ class Normalizer:
     """Normalize collector outputs to standard format."""
 
     def __init__(self):
-        self._entity_cache: Dict[str, Entity] = {}
+        self._entity_cache: dict[str, Entity] = {}
 
-    def normalize_entity(self, raw: Dict[str, Any], source: str) -> Entity:
+    def normalize_entity(self, raw: dict[str, Any], source: str) -> Entity:
         """Normalize raw entity data."""
         entity_type = EntityType(raw.get("entity_type", "domain"))
         value = raw.get("value", "")
@@ -307,10 +304,10 @@ class Normalizer:
 
     def normalize_evidence(
         self,
-        raw: Dict[str, Any],
+        raw: dict[str, Any],
         source: str,
         collector: str,
-        entity_id: Optional[str] = None,
+        entity_id: str | None = None,
         case_id: str = "",
     ) -> Evidence:
         """Normalize raw evidence data."""
@@ -343,10 +340,10 @@ class Normalizer:
             raw_data=raw_data,
             hash=build_evidence_hash(evidence_data),
             confidence=confidence,
-            observed_at=datetime.now(timezone.utc),
+            observed_at=datetime.now(UTC),
         )
 
-    def deduplicate_entities(self, entities: List[Entity]) -> List[Entity]:
+    def deduplicate_entities(self, entities: list[Entity]) -> list[Entity]:
         """Deduplicate entities by type and value."""
         seen = {}
         for entity in entities:
@@ -367,7 +364,7 @@ class RelationshipEngine:
     """Build relationships between entities."""
 
     def __init__(self):
-        self.rules: List[Callable] = []
+        self.rules: list[Callable] = []
         self._register_default_rules()
 
     def _register_default_rules(self) -> None:
@@ -378,7 +375,7 @@ class RelationshipEngine:
         self.rules.append(self._certificate_issued_to_domain)
         self.rules.append(self._possible_username_match)
 
-    def infer_relationships(self, entities: List[Entity]) -> List[Relationship]:
+    def infer_relationships(self, entities: list[Entity]) -> list[Relationship]:
         """Infer relationships from entity list."""
         relationships = []
 
@@ -390,7 +387,7 @@ class RelationshipEngine:
 
         return relationships
 
-    def _github_owns_repo(self, entities: List[Entity]) -> List[Relationship]:
+    def _github_owns_repo(self, entities: list[Entity]) -> list[Relationship]:
         """GitHub account owns repository."""
         accounts = [e for e in entities if e.entity_type == EntityType.USERNAME and "github" in e.metadata.get("source", "")]
         repos = [e for e in entities if e.entity_type == EntityType.REPOSITORY]
@@ -406,11 +403,11 @@ class RelationshipEngine:
                         relationship_type=RelationshipType.OWNS,
                         confidence=1.0,
                         source_reference="github_api",
-                        observed_at=datetime.now(timezone.utc),
+                        observed_at=datetime.now(UTC),
                     ))
         return rels
 
-    def _domain_has_subdomain(self, entities: List[Entity]) -> List[Relationship]:
+    def _domain_has_subdomain(self, entities: list[Entity]) -> list[Relationship]:
         """Domain has subdomain."""
         domains = [e for e in entities if e.entity_type == EntityType.DOMAIN]
         subdomains = [e for e in entities if e.entity_type == EntityType.SUBDOMAIN]
@@ -426,11 +423,11 @@ class RelationshipEngine:
                         relationship_type=RelationshipType.HOSTS,
                         confidence=1.0,
                         source_reference="dns",
-                        observed_at=datetime.now(timezone.utc),
+                        observed_at=datetime.now(UTC),
                     ))
         return rels
 
-    def _url_belongs_to_domain(self, entities: List[Entity]) -> List[Relationship]:
+    def _url_belongs_to_domain(self, entities: list[Entity]) -> list[Relationship]:
         """URL belongs to domain."""
         from urllib.parse import urlparse
 
@@ -450,13 +447,13 @@ class RelationshipEngine:
                         relationship_type=RelationshipType.HOSTS,
                         confidence=0.9,
                         source_reference="url_analysis",
-                        observed_at=datetime.now(timezone.utc),
+                        observed_at=datetime.now(UTC),
                     ))
             except Exception:
                 pass
         return rels
 
-    def _certificate_issued_to_domain(self, entities: List[Entity]) -> List[Relationship]:
+    def _certificate_issued_to_domain(self, entities: list[Entity]) -> list[Relationship]:
         """Certificate issued to domain."""
         certs = [e for e in entities if e.entity_type == EntityType.CERTIFICATE]
         domains = {e.value: e for e in entities if e.entity_type == EntityType.DOMAIN}
@@ -472,11 +469,11 @@ class RelationshipEngine:
                         relationship_type=RelationshipType.HOSTS,
                         confidence=1.0,
                         source_reference="tls_certificate",
-                        observed_at=datetime.now(timezone.utc),
+                        observed_at=datetime.now(UTC),
                     ))
         return rels
 
-    def _possible_username_match(self, entities: List[Entity]) -> List[Relationship]:
+    def _possible_username_match(self, entities: list[Entity]) -> list[Relationship]:
         """Possible username match across platforms."""
         usernames = [e for e in entities if e.entity_type == EntityType.USERNAME]
 
@@ -494,7 +491,7 @@ class RelationshipEngine:
                             relationship_type=RelationshipType.POSSIBLE_MATCH,
                             confidence=0.7,
                             source_reference=f"username_match:{source1}:{source2}",
-                            observed_at=datetime.now(timezone.utc),
+                            observed_at=datetime.now(UTC),
                             metadata={"note": "Same username on different platforms - not confirmed same person"},
                         ))
         return rels
@@ -505,7 +502,7 @@ class BaseCollector:
 
     name: str = "base"
     description: str = "Base collector"
-    target_types: List[TargetType] = []
+    target_types: list[TargetType] = []
 
     async def collect(self, context: CollectorContext) -> CollectorResult:
         """Collect intelligence for target."""
@@ -515,6 +512,6 @@ class BaseCollector:
         """Validate target is supported."""
         return target.target_type in self.target_types
 
-    def get_rate_limit_config(self) -> Dict[str, int]:
+    def get_rate_limit_config(self) -> dict[str, int]:
         """Get rate limit configuration."""
         return {"requests_per_minute": 60}

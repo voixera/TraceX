@@ -2,10 +2,9 @@
 
 from .base import BaseCollector, CollectorContext
 from .domain import DomainCollector
-from .url import URLCollector
 from .github import GitHubCollector
+from .url import URLCollector
 from .username import UsernameCollector
-
 
 __all__ = [
     "BaseCollector",
@@ -27,7 +26,7 @@ def get_available_collectors() -> dict:
     }
 
 
-def create_collector(name: str, config: dict = None):
+def create_collector(name: str, config: dict | None = None):
     """Create collector instance by name."""
     collectors = get_available_collectors()
     if name not in collectors:

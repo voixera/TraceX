@@ -1,23 +1,25 @@
 """TraceX Relationship Engine module."""
 
-from typing import List, Dict, Any
-from datetime import datetime, timezone
+import logging
+from datetime import UTC, datetime
+from typing import Any
+
+from packages.common.utils import generate_id
 from packages.models.schemas import (
     Entity,
-    Relationship,
-    TargetType,
     EntityType,
+    Relationship,
     RelationshipType,
-    SourceType,
 )
-from packages.common.utils import generate_id
+
+logger = logging.getLogger(__name__)
 
 
 class RelationshipEngine:
     """Build relationships between entities."""
 
     def __init__(self):
-        self.rules: List[Any] = []
+        self.rules: list[Any] = []
         self._register_default_rules()
 
     def _register_default_rules(self) -> None:
@@ -28,9 +30,9 @@ class RelationshipEngine:
         self.rules.append(self._certificate_issued_to_domain)
         self.rules.append(self._possible_username_match)
 
-    def infer_relationships(self, entities: List[Entity]) -> List[Relationship]:
+    def infer_relationships(self, entities: list[Entity]) -> list[Relationship]:
         """Infer relationships from entity list."""
-        relationships = []
+        relationships: list[Relationship] = []
 
         for rule in self.rules:
             try:
@@ -40,12 +42,12 @@ class RelationshipEngine:
 
         return relationships
 
-    def _github_owns_repo(self, entities: List[Entity]) -> List[Relationship]:
+    def _github_owns_repo(self, entities: list[Entity]) -> list[Relationship]:
         """GitHub account owns repository."""
         accounts = [e for e in entities if e.entity_type == EntityType.USERNAME and "github" in str(e.metadata.get("source", ""))]
         repos = [e for e in entities if e.entity_type == EntityType.REPOSITORY]
 
-        rels = []
+        rels: list[Relationship] = []
         for account in accounts:
             for repo in repos:
                 if repo.metadata.get("owner") == account.value:
@@ -56,16 +58,16 @@ class RelationshipEngine:
                         relationship_type=RelationshipType.OWNS,
                         confidence=1.0,
                         source_reference="github_api",
-                        observed_at=datetime.now(timezone.utc),
+                        observed_at=datetime.now(UTC),
                     ))
         return rels
 
-    def _domain_has_subdomain(self, entities: List[Entity]) -> List[Relationship]:
+    def _domain_has_subdomain(self, entities: list[Entity]) -> list[Relationship]:
         """Domain has subdomain."""
         domains = [e for e in entities if e.entity_type == EntityType.DOMAIN]
         subdomains = [e for e in entities if e.entity_type == EntityType.SUBDOMAIN]
 
-        rels = []
+        rels: list[Relationship] = []
         for domain in domains:
             for sub in subdomains:
                 if sub.value.endswith(f".{domain.value}"):
@@ -76,18 +78,18 @@ class RelationshipEngine:
                         relationship_type=RelationshipType.HOSTS,
                         confidence=1.0,
                         source_reference="dns",
-                        observed_at=datetime.now(timezone.utc),
+                        observed_at=datetime.now(UTC),
                     ))
         return rels
 
-    def _url_belongs_to_domain(self, entities: List[Entity]) -> List[Relationship]:
+    def _url_belongs_to_domain(self, entities: list[Entity]) -> list[Relationship]:
         """URL belongs to domain."""
         from urllib.parse import urlparse
 
         urls = [e for e in entities if e.entity_type == EntityType.URL]
         domains = {e.value: e for e in entities if e.entity_type == EntityType.DOMAIN}
 
-        rels = []
+        rels: list[Relationship] = []
         for url_entity in urls:
             try:
                 parsed = urlparse(url_entity.value)
@@ -100,18 +102,18 @@ class RelationshipEngine:
                         relationship_type=RelationshipType.HOSTS,
                         confidence=0.9,
                         source_reference="url_analysis",
-                        observed_at=datetime.now(timezone.utc),
+                        observed_at=datetime.now(UTC),
                     ))
             except Exception:
                 pass
         return rels
 
-    def _certificate_issued_to_domain(self, entities: List[Entity]) -> List[Relationship]:
+    def _certificate_issued_to_domain(self, entities: list[Entity]) -> list[Relationship]:
         """Certificate issued to domain."""
         certs = [e for e in entities if e.entity_type == EntityType.CERTIFICATE]
         domains = {e.value: e for e in entities if e.entity_type == EntityType.DOMAIN}
 
-        rels = []
+        rels: list[Relationship] = []
         for cert in certs:
             for domain_value in cert.metadata.get("domains", []):
                 if domain_value in domains:
@@ -122,15 +124,15 @@ class RelationshipEngine:
                         relationship_type=RelationshipType.HOSTS,
                         confidence=1.0,
                         source_reference="tls_certificate",
-                        observed_at=datetime.now(timezone.utc),
+                        observed_at=datetime.now(UTC),
                     ))
         return rels
 
-    def _possible_username_match(self, entities: List[Entity]) -> List[Relationship]:
+    def _possible_username_match(self, entities: list[Entity]) -> list[Relationship]:
         """Possible username match across platforms."""
         usernames = [e for e in entities if e.entity_type == EntityType.USERNAME]
 
-        rels = []
+        rels: list[Relationship] = []
         for i, u1 in enumerate(usernames):
             for u2 in usernames[i + 1:]:
                 if u1.value.lower() == u2.value.lower() and u1.id != u2.id:
@@ -144,6 +146,6 @@ class RelationshipEngine:
                             relationship_type=RelationshipType.POSSIBLE_MATCH,
                             confidence=0.7,
                             source_reference=f"username_match:{source1}:{source2}",
-                            observed_at=datetime.now(timezone.utc),
+                            observed_at=datetime.now(UTC),
                         ))
         return rels

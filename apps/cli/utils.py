@@ -1,16 +1,14 @@
 """TraceX CLI shared utilities."""
 
-import os
-import json
 import asyncio
+import os
+from typing import Any
+
 import httpx
-from typing import Any, Dict, Optional
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
-from rich.syntax import Syntax
 from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 console = Console()
 
@@ -23,10 +21,10 @@ def get_api_url() -> str:
 async def call_api(
     method: str,
     endpoint: str,
-    data: Optional[Dict] = None,
-    params: Optional[Dict] = None,
+    data: dict | None = None,
+    params: dict | None = None,
     timeout: float = 30.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Call TraceX API."""
     url = f"{get_api_url()}{endpoint}"
     async with httpx.AsyncClient(timeout=timeout) as client:
@@ -37,7 +35,8 @@ async def call_api(
             params=params,
         )
         response.raise_for_status()
-        return response.json()
+        result: dict[str, Any] = response.json()
+        return result
 
 
 def print_error(message: str) -> None:

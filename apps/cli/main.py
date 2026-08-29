@@ -2,19 +2,15 @@
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
 
-from apps.cli.commands import (
-    domain_cmd,
-    url_cmd,
-    github_cmd,
-    username_cmd,
-    case_cmd,
-    report_cmd,
-    graph_cmd,
-    config_cmd,
-)
+from apps.cli.commands.case import app as case_cmd
+from apps.cli.commands.config import app as config_cmd
+from apps.cli.commands.domain import app as domain_cmd
+from apps.cli.commands.github import app as github_cmd
+from apps.cli.commands.graph import app as graph_cmd
+from apps.cli.commands.report import app as report_cmd
+from apps.cli.commands.url import app as url_cmd
+from apps.cli.commands.username import app as username_cmd
 
 app = typer.Typer(
     name="tracex",
@@ -56,14 +52,14 @@ def main(
 
 
 # Register commands
-app.add_typer(domain_cmd.app, name="domain", help="Domain intelligence")
-app.add_typer(url_cmd.app, name="url", help="URL intelligence")
-app.add_typer(github_cmd.app, name="github", help="GitHub intelligence")
-app.add_typer(username_cmd.app, name="username", help="Username intelligence")
-app.add_typer(case_cmd.app, name="case", help="Manage investigation cases")
-app.add_typer(report_cmd.app, name="report", help="Generate reports")
-app.add_typer(graph_cmd.app, name="graph", help="View relationship graph")
-app.add_typer(config_cmd.app, name="config", help="Configure TraceX")
+app.add_typer(domain_cmd, name="domain", help="Domain intelligence")
+app.add_typer(url_cmd, name="url", help="URL intelligence")
+app.add_typer(github_cmd, name="github", help="GitHub intelligence")
+app.add_typer(username_cmd, name="username", help="Username intelligence")
+app.add_typer(case_cmd, name="case", help="Manage investigation cases")
+app.add_typer(report_cmd, name="report", help="Generate reports")
+app.add_typer(graph_cmd, name="graph", help="View relationship graph")
+app.add_typer(config_cmd, name="config", help="Configure TraceX")
 
 
 if __name__ == "__main__":

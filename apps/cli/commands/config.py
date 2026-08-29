@@ -1,10 +1,11 @@
 """TraceX CLI config command."""
 
-import typer
-from rich.console import Console
+import json
 import os
 from pathlib import Path
-import json
+
+import typer
+from rich.console import Console
 
 app = typer.Typer(help="Configure TraceX")
 console = Console()

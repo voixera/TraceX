@@ -1,16 +1,16 @@
 """URL collector - analyze URLs and web pages."""
 
-import asyncio
 import hashlib
-from datetime import datetime, timezone
-from typing import Dict, Any, List
-import httpx
-from urllib.parse import urlparse, urljoin
+import logging
 import re
+from typing import Any
+from urllib.parse import urlparse
 
-from packages.collectors.base import BaseCollector, CollectorContext, CollectorResult
-from packages.models.schemas import TargetType, EntityType, SourceType
+import httpx
+
+from packages.collectors.base import BaseCollector, CollectorContext
 from packages.common.utils import validate_url
+from packages.models.schemas import EntityType, SourceType, TargetType
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +23,17 @@ class URLCollector(BaseCollector):
     target_types = [TargetType.URL]
     timeout = 30
 
-    async def _collect_impl(self, context: CollectorContext) -> Dict[str, Any]:
+    async def _collect_impl(self, context: CollectorContext) -> dict[str, Any]:
         """Collect URL intelligence."""
         url = context.target.value
 
         if not validate_url(url):
             return {"errors": ["Invalid URL format"]}
 
-        entities: List[Any] = []
-        relationships: List[Any] = []
-        evidence: List[Any] = []
-        errors: List[str] = []
+        entities: list[Any] = []
+        relationships: list[Any] = []
+        evidence: list[Any] = []
+        errors: list[str] = []
 
         # HTTP analysis
         try:
@@ -57,13 +57,9 @@ class URLCollector(BaseCollector):
                     source_type=SourceType.HTTP,
                 ))
 
-                # Extract domain for relationship
                 parsed = urlparse(url)
                 if parsed.netloc:
-                    domain = parsed.netloc.split(":")[0].lower()
-                    # Would normally create relationship via relationship engine
-                    # For now, store in metadata
-                    url_entity.metadata["domain"] = domain
+                    url_entity.metadata["domain"] = parsed.netloc.split(":")[0].lower()
 
         except Exception as e:
             errors.append(f"HTTP collection failed: {e}")
@@ -103,9 +99,9 @@ class URLCollector(BaseCollector):
             "errors": errors,
         }
 
-    async def _collect_http(self, url: str) -> Dict[str, Any]:
+    async def _collect_http(self, url: str) -> dict[str, Any]:
         """Collect HTTP data for URL."""
-        http_data = {
+        http_data: dict[str, Any] = {
             "status_code": None,
             "headers": {},
             "redirects": [],
@@ -126,11 +122,9 @@ class URLCollector(BaseCollector):
                 http_data["response_time_ms"] = (time.time() - start) * 1000
                 http_data["content_length"] = len(response.content)
 
-                # Hash body
                 if response.content:
                     http_data["body_hash"] = hashlib.sha256(response.content).hexdigest()
 
-                # Extract title
                 content_type = response.headers.get("content-type", "")
                 if "text/html" in content_type.lower():
                     body = response.text
@@ -138,16 +132,13 @@ class URLCollector(BaseCollector):
                     if title_match:
                         http_data["page_title"] = title_match.group(1).strip()
 
-                # Extract canonical URL
-                canonical_match = re.search(
-                    r'<link[^>]*rel=["\']canonical["\'][^>]*href=["\']([^"\']*)["\'][^>]*>',
-                    body if "text/html" in content_type.lower() else "",
-                    re.IGNORECASE,
-                )
-                if canonical_match:
-                    http_data["canonical_url"] = canonical_match.group(1)
+                    canonical_match = re.search(
+                        r'<link[^>]*rel=["\']canonical["\'][^>]*href=["\']([^"\']*)["\'][^>]*>',
+                        body, re.IGNORECASE,
+                    )
+                    if canonical_match:
+                        http_data["canonical_url"] = canonical_match.group(1)
 
-                # Record redirects
                 if response.history:
                     http_data["redirects"] = [
                         {
@@ -163,10 +154,8 @@ class URLCollector(BaseCollector):
 
         return http_data
 
-    async def _collect_robots(self, url: str) -> Dict[str, Any]:
+    async def _collect_robots(self, url: str) -> dict[str, Any]:
         """Collect robots.txt data."""
-        from urllib.parse import urljoin
-
         parsed = urlparse(url)
         robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
 
@@ -199,10 +188,8 @@ class URLCollector(BaseCollector):
 
         return {}
 
-    async def _collect_sitemap(self, url: str) -> Dict[str, Any]:
+    async def _collect_sitemap(self, url: str) -> dict[str, Any]:
         """Collect sitemap data."""
-        from urllib.parse import urljoin
-
         parsed = urlparse(url)
         sitemap_urls = [
             f"{parsed.scheme}://{parsed.netloc}/sitemap.xml",
@@ -214,14 +201,13 @@ class URLCollector(BaseCollector):
                 try:
                     response = await client.get(sitemap_url)
                     if response.status_code == 200 and response.content:
-                        # Basic XML parsing
                         content = response.text
-                        urls = re.findall(r"<loc>([^<]+)</loc>", content)
+                        urls_found = re.findall(r"<loc>([^<]+)</loc>", content)
                         return {
                             "url": sitemap_url,
                             "content": content,
-                            "urls": urls[:100],  # Limit to 100 URLs
-                            "url_count": len(urls),
+                            "urls": urls_found[:100],
+                            "url_count": len(urls_found),
                         }
                 except Exception:
                     pass

@@ -1,18 +1,19 @@
 """TraceX Normalizer module."""
 
-from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
-from packages.models.schemas import Entity, Relationship, Evidence, TargetType, EntityType, SourceType, RelationshipType
-from packages.common.utils import generate_id, build_evidence_hash, get_current_timestamp
+from datetime import UTC, datetime
+from typing import Any
+
+from packages.common.utils import build_evidence_hash, generate_id
+from packages.models.schemas import Entity, EntityType, Evidence, SourceType
 
 
 class Normalizer:
     """Normalize collector outputs to standard format."""
 
     def __init__(self):
-        self._entity_cache: Dict[str, Entity] = {}
+        self._entity_cache: dict[str, Entity] = {}
 
-    def normalize_entity(self, raw: Dict[str, Any], source: str) -> Entity:
+    def normalize_entity(self, raw: dict[str, Any], source: str) -> Entity:
         """Normalize raw entity data."""
         entity_type_str = raw.get("entity_type", "domain")
         try:
@@ -40,10 +41,10 @@ class Normalizer:
 
     def normalize_evidence(
         self,
-        raw: Dict[str, Any],
+        raw: dict[str, Any],
         source: str,
         collector: str,
-        entity_id: Optional[str] = None,
+        entity_id: str | None = None,
         case_id: str = "",
     ) -> Evidence:
         """Normalize raw evidence data."""
@@ -80,12 +81,12 @@ class Normalizer:
             raw_data=raw_data,
             hash=build_evidence_hash(evidence_data),
             confidence=confidence,
-            observed_at=datetime.now(timezone.utc),
+            observed_at=datetime.now(UTC),
         )
 
-    def deduplicate_entities(self, entities: List[Entity]) -> List[Entity]:
+    def deduplicate_entities(self, entities: list[Entity]) -> list[Entity]:
         """Deduplicate entities by type and value."""
-        seen: Dict[str, Entity] = {}
+        seen: dict[str, Entity] = {}
         for entity in entities:
             key = f"{entity.entity_type.value}:{entity.value.lower()}"
             if key not in seen:
@@ -98,7 +99,7 @@ class Normalizer:
                 existing.source_ids.extend(entity.source_ids)
         return list(seen.values())
 
-    def normalize_domain_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def normalize_domain_data(self, data: dict[str, Any]) -> dict[str, Any]:
         """Normalize domain collector output."""
         normalized = {}
         if "dns" in data:

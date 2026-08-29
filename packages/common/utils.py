@@ -1,12 +1,12 @@
 """TraceX common utilities."""
 
-import re
 import hashlib
-import secrets
-from typing import Optional, List, Dict, Any
-from datetime import datetime, timezone
-from urllib.parse import urlparse
 import ipaddress
+import re
+import secrets
+from datetime import UTC, datetime
+from typing import Any
+from urllib.parse import urlparse
 
 
 def generate_id(prefix: str = "") -> str:
@@ -50,7 +50,7 @@ def validate_github_repo(repo: str) -> bool:
     return bool(re.match(pattern, repo))
 
 
-def parse_github_url(url: str) -> Optional[str]:
+def parse_github_url(url: str) -> str | None:
     """Extract owner/repo from GitHub URL."""
     patterns = [
         r"github\.com/([^/]+)/([^/\s]+)",
@@ -69,7 +69,7 @@ def normalize_domain(domain: str) -> str:
     return domain.rstrip(".")
 
 
-def extract_subdomains(domain: str) -> List[str]:
+def extract_subdomains(domain: str) -> list[str]:
     """Extract subdomains from domain."""
     parts = domain.split(".")
     if len(parts) > 2:
@@ -79,7 +79,7 @@ def extract_subdomains(domain: str) -> List[str]:
 
 def get_current_timestamp() -> str:
     """Get current UTC timestamp in ISO format."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def sanitize_filename(filename: str) -> str:
@@ -94,18 +94,19 @@ def mask_sensitive(text: str, visible_chars: int = 4) -> str:
     return "*" * (len(text) - visible_chars) + text[-visible_chars:]
 
 
-def parse_tags(tags: str) -> List[str]:
+def parse_tags(tags: str) -> list[str]:
     """Parse comma/space separated tags."""
     return [t.strip().lower() for t in re.split(r"[,\s]+", tags) if t.strip()]
 
 
 def format_bytes(num_bytes: int) -> str:
     """Format bytes to human readable."""
+    size: float = float(num_bytes)
     for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if num_bytes < 1024.0:
-            return f"{num_bytes:.1f} {unit}"
-        num_bytes /= 1024.0
-    return f"{num_bytes:.1f} PB"
+        if size < 1024.0:
+            return f"{size:.1f} {unit}"
+        size /= 1024.0
+    return f"{size:.1f} PB"
 
 
 def calculate_confidence_factors(evidence_count: int, source_count: int, cross_reference: int) -> float:
@@ -118,7 +119,7 @@ def calculate_confidence_factors(evidence_count: int, source_count: int, cross_r
     return round(min(1.0, score), 2)
 
 
-def build_evidence_hash(evidence: Dict[str, Any]) -> str:
+def build_evidence_hash(evidence: dict[str, Any]) -> str:
     """Build deterministic hash from evidence data."""
     import json
     canonical = json.dumps(evidence, sort_keys=True, default=str)

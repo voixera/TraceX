@@ -1,14 +1,14 @@
 """TraceX API routers - targets."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List, Optional
-from pydantic import BaseModel
 
-from packages.database.session import get_session
-from packages.database.models import Target, Case
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from packages.common.dependencies import get_current_user
+from packages.database.models import Case, Target
+from packages.database.session import get_session
 
 router = APIRouter(prefix="/api/v1/targets", tags=["targets"])
 
@@ -50,7 +50,7 @@ async def create_target(
         case_id=target.case_id,
         target_type=target.target_type,
         value=target.value,
-        metadata=target.metadata,
+        extra_metadata=target.metadata,
     )
     session.add(db_target)
     await session.commit()
@@ -58,7 +58,7 @@ async def create_target(
     return db_target
 
 
-@router.get("/case/{case_id}", response_model=List[TargetResponse])
+@router.get("/case/{case_id}", response_model=list[TargetResponse])
 async def list_targets(
     case_id: str,
     session: AsyncSession = Depends(get_session),

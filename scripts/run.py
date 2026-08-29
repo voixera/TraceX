@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 """TraceX startup script."""
 
-import sys
 import subprocess
-from pathlib import Path
+import sys
 
 
 def run_command(cmd: list, description: str) -> bool:

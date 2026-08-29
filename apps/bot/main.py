@@ -2,13 +2,14 @@
 
 import asyncio
 import logging
-from aiogram import Bot, Dispatcher, Router, types, F
+import os
+
+from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-import os
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from packages.common.settings import settings
 
@@ -82,7 +83,7 @@ async def cmd_help(message: Message):
 @router.message(Command("domain"))
 async def cmd_domain(message: Message, state: FSMContext):
     """Handle /domain command."""
-    parts = message.text.split(maxsplit=1)
+    parts = (message.text or "").split(maxsplit=1)
     if len(parts) < 2:
         await message.answer("Usage: /domain &lt;domain&gt;\nExample: /domain example.com")
         return
@@ -120,7 +121,7 @@ Sources: 3
 @router.message(Command("url"))
 async def cmd_url(message: Message):
     """Handle /url command."""
-    parts = message.text.split(maxsplit=1)
+    parts = (message.text or "").split(maxsplit=1)
     if len(parts) < 2:
         await message.answer("Usage: /url &lt;url&gt;\nExample: /url https://example.com")
         return
@@ -154,7 +155,7 @@ Sources: 1
 @router.message(Command("github"))
 async def cmd_github(message: Message):
     """Handle /github command."""
-    parts = message.text.split(maxsplit=1)
+    parts = (message.text or "").split(maxsplit=1)
     if len(parts) < 2:
         await message.answer("Usage: /github &lt;owner/repo&gt;\nExample: /github torvalds/linux")
         return
@@ -187,7 +188,7 @@ Use /lookup for detailed info
 @router.message(Command("username"))
 async def cmd_username(message: Message):
     """Handle /username command."""
-    parts = message.text.split(maxsplit=1)
+    parts = (message.text or "").split(maxsplit=1)
     if len(parts) < 2:
         await message.answer("Usage: /username &lt;username&gt;\nExample: /username johndoe")
         return
@@ -246,7 +247,7 @@ Create one with /case new [name]
 @router.message(Command("report"))
 async def cmd_report(message: Message):
     """Handle /report command."""
-    parts = message.text.split(maxsplit=1)
+    parts = (message.text or "").split(maxsplit=1)
     if len(parts) < 2:
         await message.answer("Usage: /report &lt;case_id&gt;\nExample: /report abc123")
         return
@@ -259,7 +260,7 @@ async def cmd_report(message: Message):
 @router.message(Command("graph"))
 async def cmd_graph(message: Message):
     """Handle /graph command."""
-    parts = message.text.split(maxsplit=1)
+    parts = (message.text or "").split(maxsplit=1)
     if len(parts) < 2:
         await message.answer("Usage: /graph &lt;case_id&gt;\nExample: /graph abc123")
         return

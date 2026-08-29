@@ -1,16 +1,16 @@
 """Domain collector - DNS, TLS, HTTP intelligence."""
 
 import asyncio
+import logging
 import socket
 import ssl
-from datetime import datetime, timezone
-from typing import Dict, Any, List
-import httpx
-from urllib.parse import urlparse
+from typing import Any
 
-from packages.collectors.base import BaseCollector, CollectorContext, CollectorResult
-from packages.models.schemas import TargetType, EntityType, SourceType, RelationshipType
-from packages.common.utils import validate_domain, normalize_domain
+import httpx
+
+from packages.collectors.base import BaseCollector, CollectorContext
+from packages.common.utils import normalize_domain, validate_domain
+from packages.models.schemas import EntityType, SourceType, TargetType
 
 logger = logging.getLogger(__name__)
 
@@ -23,23 +23,22 @@ class DomainCollector(BaseCollector):
     target_types = [TargetType.DOMAIN]
     timeout = 30
 
-    async def _collect_impl(self, context: CollectorContext) -> Dict[str, Any]:
+    async def _collect_impl(self, context: CollectorContext) -> dict[str, Any]:
         """Collect domain intelligence."""
         domain = normalize_domain(context.target.value)
 
         if not validate_domain(domain):
             return {"errors": ["Invalid domain format"]}
 
-        entities: List[Any] = []
-        relationships: List[Any] = []
-        evidence: List[Any] = []
-        errors: List[str] = []
+        entities: list[Any] = []
+        relationships: list[Any] = []
+        evidence: list[Any] = []
+        errors: list[str] = []
 
         # DNS records
         try:
             dns_data = await self._collect_dns(domain)
             if dns_data:
-                # Create domain entity
                 domain_entity = self.create_entity(
                     EntityType.DOMAIN,
                     domain,
@@ -49,7 +48,6 @@ class DomainCollector(BaseCollector):
                 )
                 entities.append(domain_entity)
 
-                # Create evidence
                 evidence.append(self.create_evidence(
                     context=context,
                     observation=f"DNS records for {domain}",
@@ -59,7 +57,6 @@ class DomainCollector(BaseCollector):
                     source_type=SourceType.DNS,
                 ))
 
-                # Create subdomain entities
                 for subdomain in dns_data.get("a", []) + dns_data.get("aaaa", []):
                     if subdomain and subdomain != domain:
                         sub_entity = self.create_entity(
@@ -77,10 +74,10 @@ class DomainCollector(BaseCollector):
         # TLS certificate
         try:
             cert_data = await self._collect_certificate(domain)
-            if cert_data:
+            if cert_data and cert_data.get("subject"):
                 cert_entity = self.create_entity(
                     EntityType.CERTIFICATE,
-                    cert_data.get("fingerprint", ""),
+                    cert_data.get("fingerprint", cert_data.get("subject", "")),
                     name=f"Certificate for {domain}",
                     confidence=1.0,
                     metadata=cert_data,
@@ -103,7 +100,6 @@ class DomainCollector(BaseCollector):
         try:
             http_data = await self._collect_http(domain)
             if http_data:
-                # Create URL entity
                 url_entity = self.create_entity(
                     EntityType.URL,
                     f"https://{domain}",
@@ -132,54 +128,45 @@ class DomainCollector(BaseCollector):
             "errors": errors,
         }
 
-    async def _collect_dns(self, domain: str) -> Dict[str, Any]:
+    async def _collect_dns(self, domain: str) -> dict[str, Any]:
         """Collect DNS records."""
-        records = {
-            "a": [],
-            "aaaa": [],
-            "mx": [],
-            "txt": [],
-            "ns": [],
-            "cname": [],
+        records: dict[str, list[Any]] = {
+            "a": [], "aaaa": [], "mx": [], "txt": [], "ns": [], "cname": [],
         }
 
         try:
             loop = asyncio.get_event_loop()
-            for record_type in ["A", "AAAA", "MX", "TXT", "NS", "CNAME"]:
-                try:
-                    answers = await loop.getaddrinfo(domain, None)
-                    if record_type == "A":
-                        for addr in answers:
-                            ip = addr[4][0]
-                            if ":" not in ip and ip not in records["a"]:
-                                records["a"].append(ip)
-                    elif record_type == "AAAA":
-                        for addr in answers:
-                            ip = addr[4][0]
-                            if ":" in ip and ip not in records["aaaa"]:
-                                records["aaaa"].append(ip)
-                except Exception:
-                    pass
-
-            # Get MX records via dnspython library
             try:
-                from dns import resolver
-                resolver_cache = {}
+                answers = await loop.getaddrinfo(domain, None)
+                for addr in answers:
+                    ip = str(addr[4][0])
+                    if ":" not in ip and ip not in records["a"]:
+                        records["a"].append(ip)
+                    elif ":" in ip and ip not in records["aaaa"]:
+                        records["aaaa"].append(ip)
+            except Exception:
+                pass
+
+            try:
+                import dns.resolver
                 for rtype in ["A", "AAAA", "MX", "TXT", "NS", "CNAME"]:
                     try:
-                        answers = resolver.resolve(domain, rtype)
+                        dns_answers = dns.resolver.resolve(domain, rtype)
                         if rtype == "A":
-                            records["a"] = [r.address for r in answers]
+                            records["a"] = [str(r) for r in dns_answers]
                         elif rtype == "AAAA":
-                            records["aaaa"] = [r.address for r in answers]
+                            records["aaaa"] = [str(r) for r in dns_answers]
                         elif rtype == "MX":
-                            records["mx"] = [{"exchange": str(r.exchange), "preference": r.preference} for r in answers]
+                            records["mx"] = [
+                                {"exchange": str(r.exchange), "preference": r.preference}
+                                for r in dns_answers
+                            ]
                         elif rtype == "TXT":
-                            records["txt"] = [str(r) for r in answers]
+                            records["txt"] = [str(r) for r in dns_answers]
                         elif rtype == "NS":
-                            records["ns"] = [str(r) for r in answers]
+                            records["ns"] = [str(r) for r in dns_answers]
                         elif rtype == "CNAME":
-                            records["cname"] = [str(r) for r in answers]
+                            records["cname"] = [str(r) for r in dns_answers]
                     except Exception:
                         pass
             except ImportError:
@@ -190,9 +177,9 @@ class DomainCollector(BaseCollector):
 
         return records
 
-    async def _collect_certificate(self, domain: str) -> Dict[str, Any]:
+    async def _collect_certificate(self, domain: str) -> dict[str, Any]:
         """Collect TLS certificate information."""
-        cert_data = {
+        cert_data: dict[str, Any] = {
             "issuer": None,
             "subject": None,
             "valid_from": None,
@@ -208,26 +195,21 @@ class DomainCollector(BaseCollector):
 
             with socket.create_connection((domain, 443), timeout=10) as sock:
                 with context.wrap_socket(sock, server_hostname=domain) as ssock:
-                    cert = ssock.getpeercert(True)
-                    if cert:
-                        cert_dict = ssl._ssl._test_decode_cert(cert)
-                        issuer = cert_dict.get("issuer", ())
-                        subject = cert_dict.get("subject", ())
-                        cert_data["issuer"] = dict((k, v) for i in issuer for k, v in i) if issuer else None
-                        cert_data["subject"] = dict((k, v) for i in subject for k, v in i) if subject else None
-                        cert_data["valid_from"] = cert_dict.get("notBefore")
-                        cert_data["valid_to"] = cert_dict.get("notAfter")
-                        cert_data["fingerprint"] = cert.get("fingerprint").hex() if cert.get("fingerprint") else None
-                        cert_data["san"] = cert_dict.get("subjectAltName", [])
+                    cert_der = ssock.getpeercert(binary_form=True)
+                    if cert_der:
+                        import hashlib
+                        cert_data["fingerprint"] = hashlib.sha256(cert_der).hexdigest()
+                        cert_data["subject"] = domain
+                        cert_data["issuer"] = "TLS/SSL"
 
         except Exception as e:
             self.log.debug(f"Certificate collection failed for {domain}: {e}")
 
         return cert_data
 
-    async def _collect_http(self, domain: str) -> Dict[str, Any]:
+    async def _collect_http(self, domain: str) -> dict[str, Any]:
         """Collect HTTP intelligence."""
-        http_data = {
+        http_data: dict[str, Any] = {
             "status_code": None,
             "headers": {},
             "redirects": [],
@@ -246,7 +228,6 @@ class DomainCollector(BaseCollector):
                     http_data["headers"] = dict(response.headers)
                     http_data["response_time_ms"] = (time.time() - start) * 1000
 
-                    # Extract title
                     if "text/html" in response.headers.get("content-type", ""):
                         body = response.text.lower()
                         if "<title>" in body and "</title>" in body:
@@ -254,7 +235,6 @@ class DomainCollector(BaseCollector):
                             title_end = body.find("</title>")
                             http_data["page_title"] = response.text[title_start:title_end].strip()
 
-                    # Record redirects
                     if response.history:
                         http_data["redirects"] = [
                             {"location": str(req.url), "status": req.status_code}

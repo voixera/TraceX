@@ -7,9 +7,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from packages.common.settings import settings
 from packages.common.logging import setup_logging
-from packages.database.session import init_database, create_tables, drop_tables
+from packages.common.settings import settings
+from packages.database.session import create_tables, drop_tables, init_database
 
 
 async def init():

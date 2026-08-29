@@ -1,30 +1,31 @@
 """TraceX API routers - cases."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List, Optional
-from pydantic import BaseModel
+from datetime import UTC
 
-from packages.database.session import get_session
-from packages.database.models import Case
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from packages.common.dependencies import get_current_user
+from packages.database.models import Case, CaseStatus
+from packages.database.session import get_session
 
 router = APIRouter(prefix="/api/v1/cases", tags=["cases"])
 
 
 class CaseCreate(BaseModel):
     name: str
-    description: Optional[str] = None
-    tags: List[str] = []
+    description: str | None = None
+    tags: list[str] = []
 
 
 class CaseResponse(BaseModel):
     id: str
     name: str
-    description: Optional[str]
+    description: str | None
     status: str
-    tags: List[str]
+    tags: list[str]
     created_at: str
     updated_at: str
 
@@ -52,7 +53,7 @@ async def create_case(
     return case
 
 
-@router.get("/", response_model=List[CaseResponse])
+@router.get("/", response_model=list[CaseResponse])
 async def list_cases(
     session: AsyncSession = Depends(get_session),
     current_user: str = Depends(get_current_user),
@@ -117,7 +118,7 @@ async def delete_case(
     if case.owner_id != current_user:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    case.status = "deleted"
+    case.status = CaseStatus.DELETED
     await session.commit()
     return {"detail": "Case deleted"}
 
@@ -129,7 +130,7 @@ async def archive_case(
     current_user: str = Depends(get_current_user),
 ):
     """Archive a case."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     result = await session.execute(select(Case).where(Case.id == case_id))
     case = result.scalar_one_or_none()
@@ -138,8 +139,8 @@ async def archive_case(
     if case.owner_id != current_user:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    case.status = "archived"
-    case.archived_at = datetime.now(timezone.utc)
+    case.status = CaseStatus.ARCHIVED
+    case.archived_at = datetime.now(UTC)
     await session.commit()
     await session.refresh(case)
     return case

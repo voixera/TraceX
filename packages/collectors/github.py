@@ -1,15 +1,13 @@
 """GitHub collector - repository and account intelligence."""
 
-import asyncio
-import hashlib
-import base64
-from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+import logging
+from typing import Any
+
 import httpx
 
 from packages.collectors.base import BaseCollector, CollectorContext
-from packages.models.schemas import TargetType, EntityType, SourceType
-from packages.common.utils import validate_github_repo, parse_github_url
+from packages.common.utils import parse_github_url
+from packages.models.schemas import EntityType, SourceType, TargetType
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +19,13 @@ class GitHubCollector(BaseCollector):
     description = "Collect GitHub repository and account metadata"
     target_types = [TargetType.GITHUB]
     timeout = 30
-    rate_limit = {"requests_per_minute": 30}
+    rate_limit: dict[str, int] = {"requests_per_minute": 30}
 
-    async def _collect_impl(self, context: CollectorContext) -> Dict[str, Any]:
+    async def _collect_impl(self, context: CollectorContext) -> dict[str, Any]:
         """Collect GitHub intelligence."""
         target = context.target.value
         repo_name = None
 
-        # Parse target - could be owner/repo or URL
         if target.startswith("http"):
             repo_name = parse_github_url(target)
         else:
@@ -39,10 +36,10 @@ class GitHubCollector(BaseCollector):
 
         owner, repo = repo_name.split("/", 1)
 
-        entities: List[Any] = []
-        relationships: List[Any] = []
-        evidence: List[Any] = []
-        errors: List[str] = []
+        entities: list[Any] = []
+        relationships: list[Any] = []
+        evidence: list[Any] = []
+        errors: list[str] = []
 
         token = self.get_config_value("github_token")
         headers = {"Accept": "application/vnd.github.v3+json"}
@@ -51,7 +48,6 @@ class GitHubCollector(BaseCollector):
             headers["X-GitHub-Api-Version"] = "2022-11-28"
 
         async with httpx.AsyncClient(timeout=15) as client:
-            # Repository info
             try:
                 repo_response = await client.get(
                     f"https://api.github.com/repos/{owner}/{repo}",
@@ -60,7 +56,6 @@ class GitHubCollector(BaseCollector):
                 if repo_response.status_code == 200:
                     repo_data = repo_response.json()
 
-                    # Create repository entity
                     repo_entity = self.create_entity(
                         EntityType.REPOSITORY,
                         f"{owner}/{repo}",
@@ -99,7 +94,6 @@ class GitHubCollector(BaseCollector):
                         source_type=SourceType.API,
                     ))
 
-                    # Check if owner has username entity
                     owner_entity = self.create_entity(
                         EntityType.USERNAME,
                         owner,
@@ -113,7 +107,6 @@ class GitHubCollector(BaseCollector):
                     )
                     entities.append(owner_entity)
 
-                    # Create relationship: owner owns repo
                     relationships.append({
                         "source_id": owner_entity.id,
                         "target_id": repo_entity.id,
@@ -138,8 +131,7 @@ class GitHubCollector(BaseCollector):
                 )
                 if contrib_response.status_code == 200:
                     contributors = contrib_response.json()
-
-                    for contrib in contributors[:20]:  # Limit to top 20
+                    for contrib in contributors[:20]:
                         contrib_entity = self.create_entity(
                             EntityType.USERNAME,
                             contrib.get("login", ""),
@@ -171,7 +163,7 @@ class GitHubCollector(BaseCollector):
             except Exception as e:
                 errors.append(f"Contributors fetch failed: {e}")
 
-            # Issues (public)
+            # Issues
             try:
                 issues_response = await client.get(
                     f"https://api.github.com/repos/{owner}/{repo}/issues?state=all&per_page=30",
@@ -199,7 +191,7 @@ class GitHubCollector(BaseCollector):
             except Exception as e:
                 errors.append(f"Issues fetch failed: {e}")
 
-            # Pull requests (public)
+            # Pull requests
             try:
                 pr_response = await client.get(
                     f"https://api.github.com/repos/{owner}/{repo}/pulls?state=all&per_page=30",
@@ -252,30 +244,6 @@ class GitHubCollector(BaseCollector):
 
             except Exception as e:
                 errors.append(f"Releases fetch failed: {e}")
-
-            # Repository topics
-            try:
-                topics_response = await client.get(
-                    f"https://api.github.com/repos/{owner}/{repo}/topics",
-                    headers=headers,
-                )
-                if topics_response.status_code == 200:
-                    topics_data = topics_response.json()
-                    repo_entity.metadata["topics"] = topics_data.get("names", [])
-
-                    evidence.append(self.create_evidence(
-                        context=context,
-                        observation=f"Repository topics: {', '.join(topics_data.get('names', []))}",
-                        raw_data={
-                            "repository": f"{owner}/{repo}",
-                            "topics": topics_data.get("names", []),
-                        },
-                        confidence=0.9,
-                        source_type=SourceType.API,
-                    ))
-
-            except Exception as e:
-                errors.append(f"Topics fetch failed: {e}")
 
         return {
             "entities": entities,

@@ -1,15 +1,14 @@
 """Tests for TraceX common utilities."""
 
-import pytest
 from packages.common.utils import (
-    validate_domain,
-    validate_url,
-    validate_ip,
-    validate_github_repo,
-    normalize_domain,
+    calculate_confidence_factors,
     generate_id,
     hash_evidence,
-    calculate_confidence_factors,
+    normalize_domain,
+    validate_domain,
+    validate_github_repo,
+    validate_ip,
+    validate_url,
 )
 
 

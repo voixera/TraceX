@@ -1,14 +1,10 @@
 """Tests for TraceX relationships engine."""
 
-import pytest
-from datetime import datetime, timezone
 from packages.core.relationships import RelationshipEngine
 from packages.models.schemas import (
     Entity,
     EntityType,
     RelationshipType,
-    Target,
-    TargetType,
 )
 
 
