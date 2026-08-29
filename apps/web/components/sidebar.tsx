@@ -3,7 +3,7 @@
 import { Activity, Archive, Box, FileText, GitBranch, Home, Network, Settings, Shield, Target } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn } from "../lib/utils";
 
 const routes = [
   { label: "Dashboard", icon: Home, href: "/" },
