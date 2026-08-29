@@ -56,7 +56,7 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install ".[test]"
+        run: pip install mypy ".[test]"
 
       - name: Run MyPy
         run: mypy packages/ apps/ --ignore-missing-imports
