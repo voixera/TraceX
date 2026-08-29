@@ -54,10 +54,10 @@
                     │    Collectors     │
                     └─────────┬─────────┘
                               │
-     ┌──────────┬───────────┼───────────┬──────────┐
-     ▼          ▼           ▼           ▼          ▼
-  Domain      DNS        GitHub      URL       Username
-  Intel       Intel      Intel      Intel      Intel
+       ┌──────────┬───────────┼───────────┬──────────┐
+       ▼          ▼           ▼           ▼          ▼
+    Domain      DNS        GitHub      URL       Username
+    Intel       Intel      Intel      Intel      Intel
 ```
 
 ## Quick Start
