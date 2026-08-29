@@ -1,0 +1,20 @@
+# TraceX Dockerfile - Telegram Bot
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml .
+RUN pip install --no-cache-dir -e .
+
+COPY apps/bot ./apps/bot
+COPY packages ./packages
+
+ENV PYTHONPATH=/app
+ENV TRACEX_ENV=production
+
+CMD ["python", "-m", "apps.bot.main"]

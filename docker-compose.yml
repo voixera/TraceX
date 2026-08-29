@@ -1,0 +1,100 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tracex
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/tracex
+      REDIS_URL: redis://redis:6379/0
+      TRACEX_SECRET_KEY: ${TRACEX_SECRET_KEY:-change-me-in-production}
+      TRACEX_ENV: production
+      TRACEX_DEBUG: "false"
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/tracex
+      REDIS_URL: redis://redis:6379/0
+      TRACEX_SECRET_KEY: ${TRACEX_SECRET_KEY:-change-me-in-production}
+      TRACEX_ENV: production
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  bot:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.bot
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/tracex
+      REDIS_URL: redis://redis:6379/0
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ADMIN_IDS: ${TELEGRAM_ADMIN_IDS:-}
+      TRACEX_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
