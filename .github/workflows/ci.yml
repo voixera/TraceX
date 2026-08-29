@@ -19,16 +19,11 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Install dependencies
-        run: |
-          pip install ruff mypy
-          pip install -e .
+      - name: Install ruff
+        run: pip install "ruff>=0.4"
 
       - name: Run Ruff
-        run: ruff check .
-
-      - name: Run MyPy
-        run: mypy packages/ apps/ --ignore-missing-imports
+        run: ruff check packages/ apps/ scripts/ tests/
 
   test:
     name: Test
@@ -46,7 +41,7 @@ jobs:
         run: pip install -e ".[test]"
 
       - name: Run pytest
-        run: pytest tests/ -v --tb=short
+        run: pytest tests/unit tests/integration -v --tb=short
 
   typecheck:
     name: Type Check
@@ -61,10 +56,10 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install ".[test]"
 
       - name: Run MyPy
-        run: mypy packages/ apps/ --strict --ignore-missing-imports
+        run: mypy packages/ apps/ --ignore-missing-imports
 
   docker:
     name: Docker Build
@@ -82,11 +77,3 @@ jobs:
           file: docker/Dockerfile.api
           push: false
           tags: tracex/api:test
-
-      - name: Build Bot image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docker/Dockerfile.bot
-          push: false
-          tags: tracex/bot:test

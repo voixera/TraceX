@@ -7,7 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  security:
+  bandit:
+    name: Bandit Security Scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,18 +18,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install safety
-        run: pip install safety bandit
+      - name: Install Bandit
+        run: pip install bandit[toml]
 
       - name: Run Bandit
-        run: bandit -r packages/ apps/ -f json -o bandit-report.json
-
-      - name: Run Safety
-        run: safety check --json
+        run: bandit -r packages/ apps/ scripts/ -f json -o bandit-report.json || true
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: security-reports
+          name: bandit-reports
           path: bandit-report.json

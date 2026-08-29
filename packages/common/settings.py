@@ -3,7 +3,6 @@
 import os
 from typing import Any, Dict, Optional, List
 from pathlib import Path
-from pydanticppription = "TraceX settings module."
 
 
 class Settings:
