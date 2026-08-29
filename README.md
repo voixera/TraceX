@@ -1,7 +1,7 @@
 # TraceX — Open-Source OSINT Intelligence Platform
 
 <p align="center">
-  <img src="docs/tracex-logo.svg" alt="TraceX" width="200" />
+  <img src="mainlogo.svg" alt="TraceX" width="200" />
 </p>
 
 <p align="center">
